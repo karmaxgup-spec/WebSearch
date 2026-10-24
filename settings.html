@@ -10,28 +10,6 @@
                     <input type="checkbox" id="wsll_enabled" />
                     <span>Enabled</span>
                 </label>
-                <h4>Source</h4>
-                <select id="wsll_source">
-                    <option value="extras">Extras API (deprecated)</option>
-                    <option value="koboldcpp">KoboldCpp</option>
-                    <option value="searxng">SearXNG</option>
-                    <option value="plugin">Selenium Plugin</option>
-                    <option value="serpapi">SerpApi</option>
-                    <option value="serper">Serper</option>
-                    <option value="tavily">Tavily</option>
-                    <option value="zai">Z.AI</option>
-                </select>
-                <div id="wsll_serpapi_settings">
-                    <div class="flex-container alignItemsBaseline">
-                        <h4 for="wsll_serpapi_key" class="flex1 margin0">
-                            <a href="https://serpapi.com/" target="_blank" rel="noopener noreferrer">SerpApi Key</a>
-                        </h4>
-                        <div id="wsll_serpapi_key" class="menu_button menu_button_icon">
-                            <i class="fa-solid fa-key"></i>
-                            <span>Click to set</span>
-                        </div>
-                    </div>
-                </div>
                 <div id="wsll_searxng_settings">
                     <div>
                         <strong>
@@ -44,51 +22,6 @@
                     <input type="text" class="text_pole" id="wsll_searxng_url" value="">
                     <label for="wsll_searxng_preferences">SearXNG preferences string</label>
                     <input type="text" class="text_pole" id="wsll_searxng_preferences" value="">
-                </div>
-                <div id="wsll_extras_settings">
-                    <label for="wsll_extras_engine">Engine</label>
-                    <select id="wsll_extras_engine">
-                        <option value="google">Google</option>
-                        <option value="duckduckgo">DuckDuckGo</option>
-                    </select>
-                </div>
-                <div id="wsll_tavily_settings">
-                    <div class="flex-container alignItemsBaseline">
-                        <h4 for="wsll_tavily_key" class="flex1 margin0">
-                            <a href="https://app.tavily.com/" target="_blank" rel="noopener noreferrer">Tavily AI Key</a>
-                        </h4>
-                        <div id="wsll_tavily_key" class="menu_button menu_button_icon">
-                            <i class="fa-solid fa-key"></i>
-                            <span>Click to set</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="wsll_serper_settings">
-                    <div class="flex-container alignItemsBaseline">
-                        <h4 for="wsll_serper_key" class="flex1 margin0">
-                            <a href="https://serper.dev/" target="_blank" rel="noopener noreferrer">Serper Key</a>
-                        </h4>
-                        <div id="wsll_serper_key" class="menu_button menu_button_icon">
-                            <i class="fa-solid fa-key"></i>
-                            <span>Click to set</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="wsll_koboldcpp_settings">
-                    <b>Hint:</b>
-                    <span>
-                        Set the KoboldCpp URL in the Text Completion API connection settings.
-                    </span>
-                    <span>
-                        Must use version 1.18.1 or higher and have WebSearch option enabled.
-                    </span>
-                </div>
-                <div id="wsll_zai_settings">
-                    <b>Hint:</b>
-                    <span>
-                        Set the API Key in the Chat Completion API connection settings.
-                    </span>
-                    <b>Will use Common API. Coding API is not supported!</b>
                 </div>
                 <label for="wsll_cache_lifetime">Cache Lifetime <small>(seconds)</small></label>
                 <input type="number" class="text_pole" id="wsll_cache_lifetime" value="">

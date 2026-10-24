@@ -1,8 +1,7 @@
 import { appendMediaToMessage, extension_prompt_types, getRequestHeaders, saveSettingsDebounced, setExtensionPrompt, substituteParamsExtended, name2 } from '../../../../script.js';
 import { appendFileContent, uploadFileAttachment } from '../../../chats.js';
-import { doExtrasFetch, extension_settings, getApiUrl, getContext, modules, renderExtensionTemplateAsync } from '../../../extensions.js';
+import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { registerDebugFunction } from '../../../power-user.js';
-import { SECRET_KEYS, secret_state, writeSecret } from '../../../secrets.js';
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from '../../../popup.js';
 import { extractTextFromHTML, isFalseBoolean, isTrueBoolean, onlyUnique, trimToEndSentence, trimToStartSentence, getStringHash, regexFromString, isDataURL, bufferToBase64, saveBase64AsFile } from '../../../utils.js';
 import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
@@ -10,7 +9,6 @@ import { SlashCommand } from '../../../slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
 import { commonEnumProviders } from '../../../slash-commands/SlashCommandCommonEnumsProvider.js';
 import { localforage } from '../../../../lib.js';
-import { textgen_types, textgenerationwebui_settings } from '../../../textgen-settings.js';
 
 const { ensureMessageMediaIsArray } = SillyTavern.getContext();
 const supportsMediaArrays = typeof ensureMessageMediaIsArray === 'function';
@@ -19,14 +17,7 @@ const storage = localforage.createInstance({ name: 'SillyTavern_WebSearchLL' });
 const extensionPromptMarker = '___WebSearchLL___';
 
 const WEBSEARCH_SOURCES = {
-    SERPAPI: 'serpapi',
-    EXTRAS: 'extras',
-    PLUGIN: 'plugin',
     SEARXNG: 'searxng',
-    TAVILY: 'tavily',
-    KOBOLDCPP: 'koboldcpp',
-    SERPER: 'serper',
-    ZAI: 'zai',
 };
 
 const VISIT_TARGETS = {
@@ -102,8 +93,7 @@ const defaultSettings = {
     depth: 2,
     maxWords: 10,
     budget: 2000,
-    source: WEBSEARCH_SOURCES.SERPAPI,
-    extras_engine: 'google',
+    source: WEBSEARCH_SOURCES.SEARXNG,
     visit_enabled: false,
     visit_target: VISIT_TARGETS.MESSAGE,
     visit_count: 3,
@@ -169,43 +159,8 @@ async function renderRegexRules() {
 }
 
 async function isSearchAvailable() {
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPAPI && !secret_state[SECRET_KEYS.SERPAPI]) {
-        console.debug('WebSearch: no SerpApi key found');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.EXTRAS && !modules.includes('websearch')) {
-        console.debug('WebSearch: no websearch Extras module');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.PLUGIN && !(await probeSeleniumSearchPlugin())) {
-        console.debug('WebSearch: no websearch server plugin');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SEARXNG && !extension_settings.wsll.searxng_url) {
+    if (!extension_settings.wsll.searxng_url) {
         console.debug('WebSearch: no SearXNG URL');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.TAVILY && !secret_state[SECRET_KEYS.TAVILY]) {
-        console.debug('WebSearch: no Tavily key found');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPER && !secret_state[SECRET_KEYS.SERPER]) {
-        console.debug('WebSearch: no Serper key found');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.ZAI && !secret_state[SECRET_KEYS.ZAI]) {
-        console.debug('WebSearch: no Z.AI key found');
-        return false;
-    }
-
-    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.KOBOLDCPP && !textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP]) {
-        console.debug('WebSearch: no KoboldCpp server URL');
         return false;
     }
 
@@ -816,367 +771,6 @@ async function visitImage(url) {
 }
 
 /**
- * Performs a search query via SerpApi.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Lines of search results.
- */
-async function doSerpApiQuery(query) {
-    // Perform the search
-    const result = await fetch('/api/search/serpapi', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ query }),
-    });
-
-    if (!result.ok) {
-        const text = await result.text();
-        console.debug('WebSearch: search request failed', result.statusText, text);
-        return;
-    }
-
-    const data = await result.json();
-    console.debug('WebSearch: search response', data);
-
-    // Extract the relevant information
-    // Order: 1. Answer Box, 2. Knowledge Graph, 3. Organic Results (max 5), 4. Related Questions (max 5)
-    const textBits = [];
-    const links = [];
-    const images = [];
-
-    if (Array.isArray(data.organic_results)) {
-        links.push(...data.organic_results.map(x => x.link).filter(x => x));
-    }
-
-    if (Array.isArray(data.inline_images)) {
-        for (const image of data.inline_images) {
-            images.push(image.original || image.thumbnail);
-        }
-    }
-
-    if (data.answer_box) {
-        switch (data.answer_box.type) {
-            case 'organic_result':
-                textBits.push(data.answer_box.snippet || data.answer_box.result || data.answer_box.title);
-
-                if (data.answer_box.list) {
-                    textBits.push(data.answer_box.list.join('\n'));
-                }
-
-                if (data.answer_box.table) {
-                    textBits.push(data.answer_box.table.join('\n'));
-                }
-
-                break;
-            case 'translation_result':
-                textBits.push(data.answer_box.translation?.target?.text);
-                break;
-            case 'calculator_result':
-                textBits.push(`Answer: ${data.answer_box.result}`);
-                break;
-            case 'population_result':
-                textBits.push(`${data.answer_box.place} ${data.answer_box.population}`);
-                break;
-            case 'currency_converter':
-                textBits.push(data.answer_box.result);
-                break;
-            case 'finance_results':
-                textBits.push(`${data.answer_box.title} ${data.answer_box.exchange} ${data.answer_box.stock} ${data.answer_box.price} ${data.answer_box.currency}`);
-                break;
-            case 'weather_result':
-                textBits.push(`${data.answer_box.location}; ${data.answer_box.weather}; ${data.answer_box.temperature} ${data.answer_box.unit}`);
-                break;
-            case 'flight_duration':
-                textBits.push(data.answer_box.duration);
-                break;
-            case 'dictionary_results':
-                textBits.push(data.answer_box.definitions?.join('\n'));
-                break;
-            case 'time':
-                textBits.push(`${data.answer_box.result} ${data.answer_box.date}`);
-                break;
-            default:
-                textBits.push(data.answer_box.result || data.answer_box.answer || data.answer_box.title);
-                break;
-        }
-    }
-
-    if (data.knowledge_graph) {
-        textBits.push(data.knowledge_graph.description || data.knowledge_graph.snippet || data.knowledge_graph.merchant_description || data.knowledge_graph.title);
-    }
-
-    const MAX_RESULTS = 10;
-
-    for (let i = 0; i < MAX_RESULTS; i++) {
-        if (Array.isArray(data.organic_results)) {
-            const result = data.organic_results[i];
-            if (result) {
-                textBits.push(result.snippet);
-            }
-        }
-
-        if (Array.isArray(data.related_questions)) {
-            const result = data.related_questions[i];
-            if (result) {
-                textBits.push(`${result.question} ${result.snippet}`);
-            }
-        }
-    }
-
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via Extras API.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Lines of search results.
- */
-async function doExtrasApiQuery(query) {
-    const url = new URL(getApiUrl());
-    url.pathname = '/api/websearch';
-    const result = await doExtrasFetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Bypass-Tunnel-Reminder': 'bypass',
-        },
-        body: JSON.stringify({
-            query: query,
-            engine: extension_settings.wsll.extras_engine,
-        }),
-    });
-
-    if (!result.ok) {
-        const text = await result.text();
-        console.debug('WebSearch: search request failed', result.statusText, text);
-        return;
-    }
-
-    const data = await result.json();
-    console.debug('WebSearch: search response', data);
-
-    const textBits = data.results.split('\n');
-    const links = Array.isArray(data.links) ? data.links : [];
-    const images = Array.isArray(data.images) ? data.images : [];
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via the Selenium search plugin.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Lines of search results.
- */
-async function doSeleniumPluginQuery(query) {
-    const result = await fetch('/api/plugins/selenium/search', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({
-            query: query,
-            engine: extension_settings.wsll.extras_engine,
-            include_images: extension_settings.wsll.include_images,
-        }),
-    });
-
-    if (!result.ok) {
-        const text = await result.text();
-        console.debug('WebSearch: search request failed', result.statusText, text);
-        return;
-    }
-
-    const data = await result.json();
-    console.debug('WebSearch: search response', data);
-
-    const textBits = data.results.split('\n');
-    const links = Array.isArray(data.links) ? data.links : [];
-    const images = Array.isArray(data.images) ? data.images : [];
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via Tavily.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Lines of search results.
- */
-async function doTavilyQuery(query) {
-    const result = await fetch('/api/search/tavily', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({
-            query,
-            include_images: extension_settings.wsll.include_images,
-        }),
-    });
-
-    if (!result.ok) {
-        console.debug('WebSearch: search request failed', result.statusText);
-        return;
-    }
-
-    const textBits = [];
-    const links = [];
-    const images = [];
-    const data = await result.json();
-
-    if (data.answer) {
-        textBits.push(data.answer);
-    }
-
-    if (Array.isArray(data.results)) {
-        data.results.forEach(x => {
-            textBits.push(`${x.title}\n${x.content}`);
-            links.push(x.url);
-        });
-    }
-
-    if (Array.isArray(data.images)) {
-        images.push(...data.images);
-    }
-
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via KoboldCpp.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Lines of search results.
- */
-async function doKoboldCppQuery(query) {
-    const url = textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP];
-    const result = await fetch('/api/search/koboldcpp', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ url, query }),
-    });
-
-    if (!result.ok) {
-        console.debug('WebSearch: search request failed', result.statusText);
-        return;
-    }
-
-    const textBits = [];
-    const links = [];
-    const images = [];
-    const data = await result.json();
-
-    for (const result of data) {
-        textBits.push([result.title, result.desc, result.content].filter(x => x).join('\n'));
-        links.push(result.url);
-    }
-
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via Serper.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Extracted text
- */
-async function doSerperQuery(query) {
-    const textBits = [];
-    const links = [];
-    const images = [];
-
-    async function searchWeb() {
-        const result = await fetch('/api/search/serper', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ query }),
-        });
-
-        if (!result.ok) {
-            console.debug('WebSearch: search request failed', result.statusText);
-            return;
-        }
-
-        const data = await result.json();
-        if (data.answerBox) {
-            textBits.push(`${data.answerBox.title} ${data.answerBox.answer}`);
-        }
-
-        if (data.knowledgeGraph) {
-            textBits.push(`${data.knowledgeGraph.title} ${data.knowledgeGraph.type}`);
-            Object.entries(data.knowledgeGraph.attributes ?? {}).forEach(([key, value]) => {
-                textBits.push(`${key}: ${value}`);
-            });
-        }
-
-        if (Array.isArray(data.organic)) {
-            textBits.push(...data.organic.map(x => x.snippet));
-            links.push(...data.organic.map(x => x.link));
-        }
-
-        if (Array.isArray(data.peopleAlsoAsk)) {
-            textBits.push(...data.peopleAlsoAsk.map(x => `${x.question} ${x.snippet}`));
-            links.push(...data.peopleAlsoAsk.map(x => x.link));
-        }
-
-        if (Array.isArray(data.images) && extension_settings.wsll.include_images) {
-            images.push(...data.images.map(x => x.imageUrl));
-        }
-    }
-
-    async function searchImages() {
-        if (!extension_settings.wsll.include_images) {
-            return;
-        }
-
-        const result = await fetch('/api/search/serper', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ query, images: true }),
-        });
-
-        if (!result.ok) {
-            console.debug('WebSearch: search request failed', result.statusText);
-            return;
-        }
-
-        const data = await result.json();
-        if (Array.isArray(data.images)) {
-            images.push(...data.images.map(x => x.imageUrl));
-        }
-    }
-
-    await Promise.allSettled([searchWeb(), searchImages()]);
-    return { textBits, links, images };
-}
-
-/**
- * Performs a search query via Z.AI.
- * @param {string} query Search query
- * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Extracted text
- */
-async function doZaiQuery(query) {
-    const textBits = [];
-    const links = [];
-    const images = [];
-
-    const result = await fetch('/api/search/zai', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ query }),
-    });
-
-    if (!result.ok) {
-        console.debug('WebSearch: search request failed', result.statusText);
-        return;
-    }
-
-    const data = await result.json();
-
-    if (!Array.isArray(data?.search_result)) {
-        console.debug('WebSearch: invalid search results format');
-        return;
-    }
-
-    for (const item of data.search_result) {
-        links.push(item.link);
-        textBits.push(`${item.title}\n${item.content}`);
-    }
-
-    return { textBits, links, images };
-}
-
-/**
  * Performs a search query via SearXNG.
  * @param {string} query Search query
  * @returns {Promise<{textBits: string[], links: string[], images: string[]}>} Extracted text
@@ -1254,29 +848,6 @@ async function doSearxngQuery(query) {
 }
 
 /**
- * Probes the Selenium search plugin to check if it's available.
- * @returns {Promise<boolean>} Whether the plugin is available
- */
-async function probeSeleniumSearchPlugin() {
-    try {
-        const result = await fetch('/api/plugins/selenium/probe', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-        });
-
-        if (!result.ok) {
-            console.debug('WebSearch: plugin probe failed', result.statusText);
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error('WebSearch: plugin probe failed', error);
-        return false;
-    }
-}
-
-/**
  *
  * @param {string} query Search query
  * @param {SearchRequestOptions} options Search request options
@@ -1306,26 +877,7 @@ async function performSearchRequest(query, options = { useCache: true }) {
      */
     async function callSearchSource() {
         try {
-            switch (extension_settings.wsll.source) {
-                case WEBSEARCH_SOURCES.SERPAPI:
-                    return await doSerpApiQuery(query);
-                case WEBSEARCH_SOURCES.EXTRAS:
-                    return await doExtrasApiQuery(query);
-                case WEBSEARCH_SOURCES.PLUGIN:
-                    return await doSeleniumPluginQuery(query);
-                case WEBSEARCH_SOURCES.SEARXNG:
-                    return await doSearxngQuery(query);
-                case WEBSEARCH_SOURCES.TAVILY:
-                    return await doTavilyQuery(query);
-                case WEBSEARCH_SOURCES.KOBOLDCPP:
-                    return await doKoboldCppQuery(query);
-                case WEBSEARCH_SOURCES.SERPER:
-                    return await doSerperQuery(query);
-                case WEBSEARCH_SOURCES.ZAI:
-                    return await doZaiQuery(query);
-                default:
-                    throw new Error(`Unrecognized search source: ${extension_settings.wsll.source}`);
-            }
+            return await doSearxngQuery(query);
         } catch (error) {
             console.error('WebSearch: search failed', error);
             return { textBits: [], links: [], images: [] };
@@ -1616,36 +1168,6 @@ function registerFunctionTools() {
     }
 }
 
-/**
- * Manages API key storage and UI updates for third-party services
- * @param {string} keyType - The SECRET_KEYS enum value
- * @param {string} serviceName - Display name of the service
- * @param {JQuery} buttonElement - jQuery button element reference
- */
-async function handleApiKeyManagement(keyType, serviceName, buttonElement) {
-    const key = await callGenericPopup(`Add a ${serviceName} key`, POPUP_TYPE.INPUT, '', {
-        rows: 2,
-        customButtons: [{
-            text: 'Remove Key',
-            appendAtEnd: true,
-            result: POPUP_RESULT.NEGATIVE,
-            action: async () => {
-                await writeSecret(keyType, '');
-                buttonElement.toggleClass('success', !!secret_state[keyType]);
-                toastr.success('API Key removed');
-            },
-        }],
-    });
-
-    if (key) {
-        await writeSecret(keyType, String(key).trim());
-        toastr.success('API Key saved');
-    }
-
-    buttonElement.toggleClass('success', !!secret_state[keyType]);
-}
-
-
 jQuery(async () => {
     if (!extension_settings.wsll) {
         extension_settings.wsll = structuredClone(defaultSettings);
@@ -1659,48 +1181,14 @@ jQuery(async () => {
 
     const html = await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'settings');
 
-    function switchSourceSettings() {
-        $('#wsll_extras_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.EXTRAS || extension_settings.wsll.source === WEBSEARCH_SOURCES.PLUGIN);
-        $('#wsll_serpapi_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPAPI);
-        $('#wsll_searxng_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SEARXNG);
-        $('#wsll_tavily_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.TAVILY);
-        $('#wsll_koboldcpp_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.KOBOLDCPP);
-        $('#wsll_serper_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPER);
-        $('#wsll_zai_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.ZAI);
-
-        $('#wsll_serpapi_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPAPI]);
-        $('#wsll_tavily_key').toggleClass('success', !!secret_state[SECRET_KEYS.TAVILY]);
-        $('#wsll_serper_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPER]);
-    }
-
     const getContainer = () => $(document.getElementById('wsll_container') ?? document.getElementById('extensions_settings2'));
     getContainer().append(html);
-    $('#wsll_source').val(extension_settings.wsll.source);
-    $('#wsll_source').on('change', () => {
-        extension_settings.wsll.source = String($('#wsll_source').find(':selected').val());
-        switchSourceSettings();
-        saveSettingsDebounced();
-    });
     $('#wsll_enabled').prop('checked', extension_settings.wsll.enabled);
     $('#wsll_enabled').on('change', () => {
         extension_settings.wsll.enabled = !!$('#wsll_enabled').prop('checked');
         setExtensionPrompt(extensionPromptMarker, '', extension_settings.wsll.position, extension_settings.wsll.depth);
         registerFunctionTools();
         saveSettingsDebounced();
-    });
-    $('#wsll_extras_engine').val(extension_settings.wsll.extras_engine);
-    $('#wsll_extras_engine').on('change', () => {
-        extension_settings.wsll.extras_engine = String($('#wsll_extras_engine').find(':selected').val());
-        saveSettingsDebounced();
-    });
-    $('#wsll_serpapi_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.SERPAPI, 'SerpApi', $('#wsll_serpapi_key'));
-    });
-    $('#wsll_tavily_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.TAVILY, 'Tavily', $('#wsll_tavily_key'));
-    });
-    $('#wsll_serper_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.SERPER, 'Serper', $('#wsll_serper_key'));
     });
     $('#wsll_budget').val(extension_settings.wsll.budget);
     $('#wsll_budget').on('input', () => {
@@ -1815,7 +1303,6 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
 
-    switchSourceSettings();
     registerFunctionTools();
     await renderRegexRules();
 
