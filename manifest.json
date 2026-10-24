@@ -1,5 +1,5 @@
 {
-    "display_name": "WebSearch",
+    "display_name": "WebSearch Link Limit",
     "loading_order": 50,
     "requires": [],
     "optional": [
@@ -8,8 +8,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "Cohee1207",
-    "generate_interceptor": "WebSearch_Intercept",
-    "version": "1.2.0",
-    "homePage": "https://github.com/SillyTavern/Extension-WebSearch",
-    "auto_update": true
+    "generate_interceptor": "WebSearchLL_Intercept",
+    "version": "1.2.1-linklimit",
+    "auto_update": false
 }

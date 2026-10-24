@@ -15,8 +15,8 @@ import { textgen_types, textgenerationwebui_settings } from '../../../textgen-se
 const { ensureMessageMediaIsArray } = SillyTavern.getContext();
 const supportsMediaArrays = typeof ensureMessageMediaIsArray === 'function';
 
-const storage = localforage.createInstance({ name: 'SillyTavern_WebSearch' });
-const extensionPromptMarker = '___WebSearch___';
+const storage = localforage.createInstance({ name: 'SillyTavern_WebSearchLL' });
+const extensionPromptMarker = '___WebSearchLL___';
 
 const WEBSEARCH_SOURCES = {
     SERPAPI: 'serpapi',
@@ -137,74 +137,74 @@ function ensureEndNewline(text) {
 
 function createRegexRule() {
     const rule = { pattern: '', query: '' };
-    extension_settings.websearch.regex.push(rule);
+    extension_settings.wsll.regex.push(rule);
     saveSettingsDebounced();
     renderRegexRules();
 }
 
 async function renderRegexRules() {
-    $('#websearch_regex_list').empty();
-    for (const rule of extension_settings.websearch.regex) {
-        const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch', 'regex'));
-        template.find('.websearch_regex_pattern').val(rule.pattern).on('input', function () {
+    $('#wsll_regex_list').empty();
+    for (const rule of extension_settings.wsll.regex) {
+        const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'regex'));
+        template.find('.wsll_regex_pattern').val(rule.pattern).on('input', function () {
             rule.pattern = String($(this).val());
             saveSettingsDebounced();
         });
-        template.find('.websearch_regex_query').val(rule.query).on('input', function () {
+        template.find('.wsll_regex_query').val(rule.query).on('input', function () {
             rule.query = String($(this).val());
             saveSettingsDebounced();
         });
-        template.find('.websearch_regex_delete').on('click', () => {
+        template.find('.wsll_regex_delete').on('click', () => {
             if (!confirm('Are you sure?')) {
                 return;
             }
 
-            const index = extension_settings.websearch.regex.indexOf(rule);
-            extension_settings.websearch.regex.splice(index, 1);
+            const index = extension_settings.wsll.regex.indexOf(rule);
+            extension_settings.wsll.regex.splice(index, 1);
             saveSettingsDebounced();
             renderRegexRules();
         });
-        $('#websearch_regex_list').append(template);
+        $('#wsll_regex_list').append(template);
     }
 }
 
 async function isSearchAvailable() {
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.SERPAPI && !secret_state[SECRET_KEYS.SERPAPI]) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPAPI && !secret_state[SECRET_KEYS.SERPAPI]) {
         console.debug('WebSearch: no SerpApi key found');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.EXTRAS && !modules.includes('websearch')) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.EXTRAS && !modules.includes('websearch')) {
         console.debug('WebSearch: no websearch Extras module');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.PLUGIN && !(await probeSeleniumSearchPlugin())) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.PLUGIN && !(await probeSeleniumSearchPlugin())) {
         console.debug('WebSearch: no websearch server plugin');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.SEARXNG && !extension_settings.websearch.searxng_url) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SEARXNG && !extension_settings.wsll.searxng_url) {
         console.debug('WebSearch: no SearXNG URL');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.TAVILY && !secret_state[SECRET_KEYS.TAVILY]) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.TAVILY && !secret_state[SECRET_KEYS.TAVILY]) {
         console.debug('WebSearch: no Tavily key found');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.SERPER && !secret_state[SECRET_KEYS.SERPER]) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPER && !secret_state[SECRET_KEYS.SERPER]) {
         console.debug('WebSearch: no Serper key found');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.ZAI && !secret_state[SECRET_KEYS.ZAI]) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.ZAI && !secret_state[SECRET_KEYS.ZAI]) {
         console.debug('WebSearch: no Z.AI key found');
         return false;
     }
 
-    if (extension_settings.websearch.source === WEBSEARCH_SOURCES.KOBOLDCPP && !textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP]) {
+    if (extension_settings.wsll.source === WEBSEARCH_SOURCES.KOBOLDCPP && !textgenerationwebui_settings.server_urls[textgen_types.KOBOLDCPP]) {
         console.debug('WebSearch: no KoboldCpp server URL');
         return false;
     }
@@ -232,12 +232,12 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
         return;
     }
 
-    if (!extension_settings.websearch.enabled) {
+    if (!extension_settings.wsll.enabled) {
         console.debug('WebSearch: extension is disabled');
         return;
     }
 
-    if (extension_settings.websearch.use_function_tool && canUseFunctionTool()) {
+    if (extension_settings.wsll.use_function_tool && canUseFunctionTool()) {
         console.debug('WebSearch: using the function tool');
         return;
     }
@@ -251,7 +251,7 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
 
     try {
         console.debug('WebSearch: resetting the extension prompt');
-        setExtensionPrompt(extensionPromptMarker, '', extension_settings.websearch.position, extension_settings.websearch.depth);
+        setExtensionPrompt(extensionPromptMarker, '', extension_settings.wsll.position, extension_settings.wsll.depth);
 
         const isAvailable = await isSearchAvailable();
 
@@ -298,7 +298,7 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
         }
 
         const hasVisitTargets = (Array.isArray(links) && links.length > 0) || (Array.isArray(images) && images.length > 0);
-        if (extension_settings.websearch.visit_enabled && triggerMessage && hasVisitTargets) {
+        if (extension_settings.wsll.visit_enabled && triggerMessage && hasVisitTargets) {
             const messageId = Number(triggerMessage.index);
             const visitResult = await visitLinksAndAttachToMessage(searchQuery, links, images, messageId);
 
@@ -321,7 +321,7 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
         }
 
         // Insert the result into the prompt
-        let template = extension_settings.websearch.insertionTemplate;
+        let template = extension_settings.wsll.insertionTemplate;
 
         if (!template) {
             console.debug('WebSearch: no insertion template found, using default');
@@ -334,7 +334,7 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
         }
 
         const extensionPrompt = substituteParamsExtended(template, { text: text, query: searchQuery });
-        setExtensionPrompt(extensionPromptMarker, extensionPrompt, extension_settings.websearch.position, extension_settings.websearch.depth);
+        setExtensionPrompt(extensionPromptMarker, extensionPrompt, extension_settings.wsll.position, extension_settings.wsll.depth);
         console.log('WebSearch: prompt updated', extensionPrompt);
     } catch (error) {
         console.error('WebSearch: error while processing the request', error);
@@ -372,7 +372,7 @@ function extractSearchQuery(message) {
 
     console.log('WebSearch: processed message', message);
 
-    if (extension_settings.websearch.use_backticks) {
+    if (extension_settings.wsll.use_backticks) {
         // Remove triple backtick blocks
         message = message.replace(/```[^`]+```/gi, '');
         // Find the first backtick-enclosed substring
@@ -385,8 +385,8 @@ function extractSearchQuery(message) {
         }
     }
 
-    if (extension_settings.websearch.use_regex) {
-        for (const rule of extension_settings.websearch.regex) {
+    if (extension_settings.wsll.use_regex) {
+        for (const rule of extension_settings.wsll.regex) {
             const regex = regexFromString(rule.pattern);
 
             if (regex && regex.test(message)) {
@@ -398,11 +398,11 @@ function extractSearchQuery(message) {
         }
     }
 
-    if (extension_settings.websearch.use_trigger_phrases) {
+    if (extension_settings.wsll.use_trigger_phrases) {
         // Find the first index of the trigger phrase in the message
         let triggerPhraseIndex = -1;
         let triggerPhraseActual = '';
-        const triggerPhrases = extension_settings.websearch.triggerPhrases;
+        const triggerPhrases = extension_settings.wsll.triggerPhrases;
 
         for (let i = 0; i < triggerPhrases.length; i++) {
             const triggerPhrase = triggerPhrases[i].toLowerCase();
@@ -426,7 +426,7 @@ function extractSearchQuery(message) {
         console.log('WebSearch: extracted query', message);
 
         // Limit the number of words
-        const maxWords = extension_settings.websearch.maxWords;
+        const maxWords = extension_settings.wsll.maxWords;
         message = message.split(' ').slice(0, maxWords).join(' ');
         console.log('WebSearch: query after word limit', message);
 
@@ -466,7 +466,7 @@ function processInputText(text) {
 function isAllowedUrl(link) {
     try {
         const url = new URL(link);
-        const isBlacklisted = extension_settings.websearch.visit_blacklist.some(y => typeof y === 'string' && y.trim() && url.hostname.includes(y));
+        const isBlacklisted = extension_settings.wsll.visit_blacklist.some(y => typeof y === 'string' && y.trim() && url.hostname.includes(y));
         if (isBlacklisted) {
             console.debug('WebSearch: blacklisted link', link);
         }
@@ -496,7 +496,7 @@ async function visitLinks(query, links) {
         return '';
     }
 
-    const visitCount = extension_settings.websearch.visit_count;
+    const visitCount = extension_settings.wsll.visit_count;
     const visitPromises = [];
 
     for (let i = 0; i < Math.min(visitCount, links.length); i++) {
@@ -513,7 +513,7 @@ async function visitLinks(query, links) {
             const { link, text } = result.value;
 
             if (text) {
-                linkResult += ensureEndNewline(substituteParamsExtended(extension_settings.websearch.visit_block_header, { query: query, text: text, link: link }));
+                linkResult += ensureEndNewline(substituteParamsExtended(extension_settings.wsll.visit_block_header, { query: query, text: text, link: link }));
             }
         }
     }
@@ -523,7 +523,7 @@ async function visitLinks(query, links) {
         return '';
     }
 
-    const fileHeader = ensureEndNewline(substituteParamsExtended(extension_settings.websearch.visit_file_header, { query: query }));
+    const fileHeader = ensureEndNewline(substituteParamsExtended(extension_settings.wsll.visit_file_header, { query: query }));
     const fileText = fileHeader + linkResult;
     return fileText;
 }
@@ -564,7 +564,7 @@ async function visitLinksAndAttachToMessage(query, links, images, messageId) {
         message.extra = {};
     }
 
-    if (extension_settings.websearch.include_images && Array.isArray(images) && images.length > 0) {
+    if (extension_settings.wsll.include_images && Array.isArray(images) && images.length > 0) {
         try {
             if (!supportsMediaArrays) {
                 const hasImage = Boolean(message.extra.image);
@@ -597,7 +597,7 @@ async function visitLinksAndAttachToMessage(query, links, images, messageId) {
         }
     }
 
-    if (extension_settings.websearch.visit_target === VISIT_TARGETS.NONE) {
+    if (extension_settings.wsll.visit_target === VISIT_TARGETS.NONE) {
         console.debug('WebSearch: visit target is set to none');
         return;
     }
@@ -613,7 +613,7 @@ async function visitLinksAndAttachToMessage(query, links, images, messageId) {
     }
 
     try {
-        if (extension_settings.websearch.visit_target === VISIT_TARGETS.DATA_BANK) {
+        if (extension_settings.wsll.visit_target === VISIT_TARGETS.DATA_BANK) {
             const fileExists = await isFileExistsInDataBank(query);
 
             if (fileExists) {
@@ -628,7 +628,7 @@ async function visitLinksAndAttachToMessage(query, links, images, messageId) {
             return;
         }
 
-        if (extension_settings.websearch.visit_target === VISIT_TARGETS.DATA_BANK) {
+        if (extension_settings.wsll.visit_target === VISIT_TARGETS.DATA_BANK) {
             await uploadToDataBank(fileName, fileText);
         } else {
             const base64Data = window.btoa(unescape(encodeURIComponent(fileText)));
@@ -676,7 +676,7 @@ async function visitImages(images) {
 
     const imageSwipes = [];
     const visitPromises = [];
-    const visitCount = extension_settings.websearch.visit_count;
+    const visitCount = extension_settings.wsll.visit_count;
 
     for (let i = 0; i < Math.min(visitCount, images.length); i++) {
         const image = images[i];
@@ -941,7 +941,7 @@ async function doExtrasApiQuery(query) {
         },
         body: JSON.stringify({
             query: query,
-            engine: extension_settings.websearch.extras_engine,
+            engine: extension_settings.wsll.extras_engine,
         }),
     });
 
@@ -971,8 +971,8 @@ async function doSeleniumPluginQuery(query) {
         headers: getRequestHeaders(),
         body: JSON.stringify({
             query: query,
-            engine: extension_settings.websearch.extras_engine,
-            include_images: extension_settings.websearch.include_images,
+            engine: extension_settings.wsll.extras_engine,
+            include_images: extension_settings.wsll.include_images,
         }),
     });
 
@@ -1002,7 +1002,7 @@ async function doTavilyQuery(query) {
         headers: getRequestHeaders(),
         body: JSON.stringify({
             query,
-            include_images: extension_settings.websearch.include_images,
+            include_images: extension_settings.wsll.include_images,
         }),
     });
 
@@ -1109,13 +1109,13 @@ async function doSerperQuery(query) {
             links.push(...data.peopleAlsoAsk.map(x => x.link));
         }
 
-        if (Array.isArray(data.images) && extension_settings.websearch.include_images) {
+        if (Array.isArray(data.images) && extension_settings.wsll.include_images) {
             images.push(...data.images.map(x => x.imageUrl));
         }
     }
 
     async function searchImages() {
-        if (!extension_settings.websearch.include_images) {
+        if (!extension_settings.wsll.include_images) {
             return;
         }
 
@@ -1192,8 +1192,8 @@ async function doSearxngQuery(query) {
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 query,
-                baseUrl: extension_settings.websearch.searxng_url,
-                preferences: extension_settings.websearch.searxng_preferences,
+                baseUrl: extension_settings.wsll.searxng_url,
+                preferences: extension_settings.wsll.searxng_preferences,
             }),
         });
 
@@ -1222,7 +1222,7 @@ async function doSearxngQuery(query) {
     }
 
     async function searchImages() {
-        if (!extension_settings.websearch.include_images) {
+        if (!extension_settings.wsll.include_images) {
             return;
         }
 
@@ -1231,8 +1231,8 @@ async function doSearxngQuery(query) {
             headers: getRequestHeaders(),
             body: JSON.stringify({
                 query,
-                baseUrl: extension_settings.websearch.searxng_url,
-                preferences: extension_settings.websearch.searxng_preferences,
+                baseUrl: extension_settings.wsll.searxng_url,
+                preferences: extension_settings.wsll.searxng_preferences,
                 categories: 'images',
             }),
         });
@@ -1286,7 +1286,7 @@ async function probeSeleniumSearchPlugin() {
 async function performSearchRequest(query, options = { useCache: true }) {
     // Check if the query is cached
     const cacheKey = `query_${query}`;
-    const cacheLifetime = extension_settings.websearch.cacheLifetime;
+    const cacheLifetime = extension_settings.wsll.cacheLifetime;
     const cachedResult = await storage.getItem(cacheKey);
 
     if (options.useCache && cachedResult) {
@@ -1306,7 +1306,7 @@ async function performSearchRequest(query, options = { useCache: true }) {
      */
     async function callSearchSource() {
         try {
-            switch (extension_settings.websearch.source) {
+            switch (extension_settings.wsll.source) {
                 case WEBSEARCH_SOURCES.SERPAPI:
                     return await doSerpApiQuery(query);
                 case WEBSEARCH_SOURCES.EXTRAS:
@@ -1324,7 +1324,7 @@ async function performSearchRequest(query, options = { useCache: true }) {
                 case WEBSEARCH_SOURCES.ZAI:
                     return await doZaiQuery(query);
                 default:
-                    throw new Error(`Unrecognized search source: ${extension_settings.websearch.source}`);
+                    throw new Error(`Unrecognized search source: ${extension_settings.wsll.source}`);
             }
         } catch (error) {
             console.error('WebSearch: search failed', error);
@@ -1333,7 +1333,7 @@ async function performSearchRequest(query, options = { useCache: true }) {
     }
 
     const { textBits, links, images } = await callSearchSource();
-    const budget = extension_settings.websearch.budget;
+    const budget = extension_settings.wsll.budget;
     let text = '';
 
     for (let i of textBits.filter(onlyUnique)) {
@@ -1380,14 +1380,14 @@ async function performSearchRequest(query, options = { useCache: true }) {
     return { text, links, images };
 }
 
-window['WebSearch_Intercept'] = onWebSearchPrompt;
+window['WebSearchLL_Intercept'] = onWebSearchPrompt;
 
 /**
  * Provides an interface for the Data Bank to interact with the extension.
  */
-class WebSearchScraper {
+class WebSearchLLScraper {
     constructor() {
-        this.id = 'websearch';
+        this.id = 'websearchll';
         this.name = 'Web Search';
         this.description = 'Perform a web search and download the results.';
         this.iconClass = 'fa-solid fa-search';
@@ -1408,9 +1408,9 @@ class WebSearchScraper {
      */
     async scrape() {
         try {
-            const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch', 'search-scrape', {}));
+            const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'search-scrape', {}));
             let query = '';
-            let maxResults = extension_settings.websearch.visit_count;
+            let maxResults = extension_settings.wsll.visit_count;
             let output = 'multiple';
             let snippets = false;
             template.find('input[name="searchScrapeQuery"]').on('input', function () {
@@ -1473,11 +1473,11 @@ class WebSearchScraper {
 
                 for (const visitResult of visitResults) {
                     if (visitResult.text) {
-                        result += ensureEndNewline(substituteParamsExtended(extension_settings.websearch.visit_block_header, { query: query, link: visitResult.link, text: visitResult.text }));
+                        result += ensureEndNewline(substituteParamsExtended(extension_settings.wsll.visit_block_header, { query: query, link: visitResult.link, text: visitResult.text }));
                     }
                 }
 
-                const fileHeader = ensureEndNewline(substituteParamsExtended(extension_settings.websearch.visit_file_header, { query: query }));
+                const fileHeader = ensureEndNewline(substituteParamsExtended(extension_settings.wsll.visit_file_header, { query: query }));
                 const fileText = fileHeader + result;
                 const fileName = `websearch - ${query} - ${Date.now()}.txt`;
                 const file = new File([fileText], fileName, { type: 'text/plain' });
@@ -1513,7 +1513,7 @@ function applyLinkLimit(links) {
         return [];
     }
 
-    const limit = Number(extension_settings.websearch.link_limit) || 0;
+    const limit = Number(extension_settings.wsll.link_limit) || 0;
 
     if (limit <= 0) {
         return [...links];
@@ -1531,9 +1531,9 @@ function registerFunctionTools() {
             return;
         }
 
-        if (!extension_settings.websearch.use_function_tool || !extension_settings.websearch.enabled) {
-            unregisterFunctionTool('WebSearch');
-            unregisterFunctionTool('VisitLinks');
+        if (!extension_settings.wsll.use_function_tool || !extension_settings.wsll.enabled) {
+            unregisterFunctionTool('WebSearchLL');
+            unregisterFunctionTool('VisitLinksLL');
             return;
         }
 
@@ -1569,7 +1569,7 @@ function registerFunctionTools() {
         });
 
         registerFunctionTool({
-            name: 'WebSearch',
+            name: 'WebSearchLL',
             displayName: 'Web Search',
             description: 'Search the web and get the content of the relevant pages. Search for unknown knowledge, public personalities, up-to-date information, weather, news, etc.',
             parameters: webSearchSchema,
@@ -1584,7 +1584,7 @@ function registerFunctionTools() {
         });
 
         registerFunctionTool({
-            name: 'VisitLinks',
+            name: 'VisitLinksLL',
             displayName: 'Visit Links',
             description: 'Visit the web links and get the content of the relevant pages.',
             parameters: visitLinksSchema,
@@ -1647,171 +1647,171 @@ async function handleApiKeyManagement(keyType, serviceName, buttonElement) {
 
 
 jQuery(async () => {
-    if (!extension_settings.websearch) {
-        extension_settings.websearch = structuredClone(defaultSettings);
+    if (!extension_settings.wsll) {
+        extension_settings.wsll = structuredClone(defaultSettings);
     }
 
     for (const key of Object.keys(defaultSettings)) {
-        if (extension_settings.websearch[key] === undefined) {
-            extension_settings.websearch[key] = defaultSettings[key];
+        if (extension_settings.wsll[key] === undefined) {
+            extension_settings.wsll[key] = defaultSettings[key];
         }
     }
 
-    const html = await renderExtensionTemplateAsync('third-party/Extension-WebSearch', 'settings');
+    const html = await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'settings');
 
     function switchSourceSettings() {
-        $('#websearch_extras_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.EXTRAS || extension_settings.websearch.source === WEBSEARCH_SOURCES.PLUGIN);
-        $('#serpapi_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.SERPAPI);
-        $('#websearch_searxng_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.SEARXNG);
-        $('#websearch_tavily_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.TAVILY);
-        $('#websearch_koboldcpp_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.KOBOLDCPP);
-        $('#websearch_serper_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.SERPER);
-        $('#websearch_zai_settings').toggle(extension_settings.websearch.source === WEBSEARCH_SOURCES.ZAI);
+        $('#wsll_extras_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.EXTRAS || extension_settings.wsll.source === WEBSEARCH_SOURCES.PLUGIN);
+        $('#wsll_serpapi_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPAPI);
+        $('#wsll_searxng_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SEARXNG);
+        $('#wsll_tavily_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.TAVILY);
+        $('#wsll_koboldcpp_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.KOBOLDCPP);
+        $('#wsll_serper_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.SERPER);
+        $('#wsll_zai_settings').toggle(extension_settings.wsll.source === WEBSEARCH_SOURCES.ZAI);
 
-        $('#serpapi_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPAPI]);
-        $('#tavily_key').toggleClass('success', !!secret_state[SECRET_KEYS.TAVILY]);
-        $('#serper_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPER]);
+        $('#wsll_serpapi_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPAPI]);
+        $('#wsll_tavily_key').toggleClass('success', !!secret_state[SECRET_KEYS.TAVILY]);
+        $('#wsll_serper_key').toggleClass('success', !!secret_state[SECRET_KEYS.SERPER]);
     }
 
-    const getContainer = () => $(document.getElementById('websearch_container') ?? document.getElementById('extensions_settings2'));
+    const getContainer = () => $(document.getElementById('wsll_container') ?? document.getElementById('extensions_settings2'));
     getContainer().append(html);
-    $('#websearch_source').val(extension_settings.websearch.source);
-    $('#websearch_source').on('change', () => {
-        extension_settings.websearch.source = String($('#websearch_source').find(':selected').val());
+    $('#wsll_source').val(extension_settings.wsll.source);
+    $('#wsll_source').on('change', () => {
+        extension_settings.wsll.source = String($('#wsll_source').find(':selected').val());
         switchSourceSettings();
         saveSettingsDebounced();
     });
-    $('#websearch_enabled').prop('checked', extension_settings.websearch.enabled);
-    $('#websearch_enabled').on('change', () => {
-        extension_settings.websearch.enabled = !!$('#websearch_enabled').prop('checked');
-        setExtensionPrompt(extensionPromptMarker, '', extension_settings.websearch.position, extension_settings.websearch.depth);
+    $('#wsll_enabled').prop('checked', extension_settings.wsll.enabled);
+    $('#wsll_enabled').on('change', () => {
+        extension_settings.wsll.enabled = !!$('#wsll_enabled').prop('checked');
+        setExtensionPrompt(extensionPromptMarker, '', extension_settings.wsll.position, extension_settings.wsll.depth);
         registerFunctionTools();
         saveSettingsDebounced();
     });
-    $('#websearch_extras_engine').val(extension_settings.websearch.extras_engine);
-    $('#websearch_extras_engine').on('change', () => {
-        extension_settings.websearch.extras_engine = String($('#websearch_extras_engine').find(':selected').val());
+    $('#wsll_extras_engine').val(extension_settings.wsll.extras_engine);
+    $('#wsll_extras_engine').on('change', () => {
+        extension_settings.wsll.extras_engine = String($('#wsll_extras_engine').find(':selected').val());
         saveSettingsDebounced();
     });
-    $('#serpapi_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.SERPAPI, 'SerpApi', $('#serpapi_key'));
+    $('#wsll_serpapi_key').on('click', async () => {
+        await handleApiKeyManagement(SECRET_KEYS.SERPAPI, 'SerpApi', $('#wsll_serpapi_key'));
     });
-    $('#tavily_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.TAVILY, 'Tavily', $('#tavily_key'));
+    $('#wsll_tavily_key').on('click', async () => {
+        await handleApiKeyManagement(SECRET_KEYS.TAVILY, 'Tavily', $('#wsll_tavily_key'));
     });
-    $('#serper_key').on('click', async () => {
-        await handleApiKeyManagement(SECRET_KEYS.SERPER, 'Serper', $('#serper_key'));
+    $('#wsll_serper_key').on('click', async () => {
+        await handleApiKeyManagement(SECRET_KEYS.SERPER, 'Serper', $('#wsll_serper_key'));
     });
-    $('#websearch_budget').val(extension_settings.websearch.budget);
-    $('#websearch_budget').on('input', () => {
-        extension_settings.websearch.budget = Number($('#websearch_budget').val());
+    $('#wsll_budget').val(extension_settings.wsll.budget);
+    $('#wsll_budget').on('input', () => {
+        extension_settings.wsll.budget = Number($('#wsll_budget').val());
         saveSettingsDebounced();
     });
-    $('#websearch_trigger_phrases').val(extension_settings.websearch.triggerPhrases.join('\n'));
-    $('#websearch_trigger_phrases').on('input', () => {
-        extension_settings.websearch.triggerPhrases = String($('#websearch_trigger_phrases').val()).split('\n');
+    $('#wsll_trigger_phrases').val(extension_settings.wsll.triggerPhrases.join('\n'));
+    $('#wsll_trigger_phrases').on('input', () => {
+        extension_settings.wsll.triggerPhrases = String($('#wsll_trigger_phrases').val()).split('\n');
         saveSettingsDebounced();
     });
-    $('#websearch_cache_lifetime').val(extension_settings.websearch.cacheLifetime);
-    $('#websearch_cache_lifetime').on('input', () => {
-        extension_settings.websearch.cacheLifetime = Number($('#websearch_cache_lifetime').val());
+    $('#wsll_cache_lifetime').val(extension_settings.wsll.cacheLifetime);
+    $('#wsll_cache_lifetime').on('input', () => {
+        extension_settings.wsll.cacheLifetime = Number($('#wsll_cache_lifetime').val());
         saveSettingsDebounced();
     });
-    $('#websearch_max_words').val(extension_settings.websearch.maxWords);
-    $('#websearch_max_words').on('input', () => {
-        extension_settings.websearch.maxWords = Number($('#websearch_max_words').val());
+    $('#wsll_max_words').val(extension_settings.wsll.maxWords);
+    $('#wsll_max_words').on('input', () => {
+        extension_settings.wsll.maxWords = Number($('#wsll_max_words').val());
         saveSettingsDebounced();
     });
-    $('#websearch_template').val(extension_settings.websearch.insertionTemplate);
-    $('#websearch_template').on('input', () => {
-        extension_settings.websearch.insertionTemplate = String($('#websearch_template').val());
+    $('#wsll_template').val(extension_settings.wsll.insertionTemplate);
+    $('#wsll_template').on('input', () => {
+        extension_settings.wsll.insertionTemplate = String($('#wsll_template').val());
         saveSettingsDebounced();
     });
-    $(`input[name="websearch_position"][value="${extension_settings.websearch.position}"]`).prop('checked', true);
-    $('input[name="websearch_position"]').on('change', () => {
-        extension_settings.websearch.position = Number($('input[name="websearch_position"]:checked').val());
+    $(`input[name="wsll_position"][value="${extension_settings.wsll.position}"]`).prop('checked', true);
+    $('input[name="wsll_position"]').on('change', () => {
+        extension_settings.wsll.position = Number($('input[name="wsll_position"]:checked').val());
         saveSettingsDebounced();
     });
-    $('#websearch_depth').val(extension_settings.websearch.depth);
-    $('#websearch_depth').on('input', () => {
-        extension_settings.websearch.depth = Number($('#websearch_depth').val());
+    $('#wsll_depth').val(extension_settings.wsll.depth);
+    $('#wsll_depth').on('input', () => {
+        extension_settings.wsll.depth = Number($('#wsll_depth').val());
         saveSettingsDebounced();
     });
-    $('#websearch_visit_enabled').prop('checked', extension_settings.websearch.visit_enabled);
-    $('#websearch_visit_enabled').on('change', () => {
-        extension_settings.websearch.visit_enabled = !!$('#websearch_visit_enabled').prop('checked');
+    $('#wsll_visit_enabled').prop('checked', extension_settings.wsll.visit_enabled);
+    $('#wsll_visit_enabled').on('change', () => {
+        extension_settings.wsll.visit_enabled = !!$('#wsll_visit_enabled').prop('checked');
         saveSettingsDebounced();
     });
-    $(`input[name="websearch_visit_target"][value="${extension_settings.websearch.visit_target}"]`).prop('checked', true);
-    $('input[name="websearch_visit_target"]').on('input', () => {
-        extension_settings.websearch.visit_target = Number($('input[name="websearch_visit_target"]:checked').val());
+    $(`input[name="wsll_visit_target"][value="${extension_settings.wsll.visit_target}"]`).prop('checked', true);
+    $('input[name="wsll_visit_target"]').on('input', () => {
+        extension_settings.wsll.visit_target = Number($('input[name="wsll_visit_target"]:checked').val());
         saveSettingsDebounced();
     });
-    $('#websearch_visit_count').val(extension_settings.websearch.visit_count);
-    $('#websearch_visit_count').on('input', () => {
-        extension_settings.websearch.visit_count = Number($('#websearch_visit_count').val());
+    $('#wsll_visit_count').val(extension_settings.wsll.visit_count);
+    $('#wsll_visit_count').on('input', () => {
+        extension_settings.wsll.visit_count = Number($('#wsll_visit_count').val());
         saveSettingsDebounced();
     });
-    $('#websearch_visit_blacklist').val(extension_settings.websearch.visit_blacklist.join('\n'));
-    $('#websearch_visit_blacklist').on('input', () => {
-        extension_settings.websearch.visit_blacklist = String($('#websearch_visit_blacklist').val()).split('\n').map(x => x.trim()).filter(x => x.length > 0);
+    $('#wsll_visit_blacklist').val(extension_settings.wsll.visit_blacklist.join('\n'));
+    $('#wsll_visit_blacklist').on('input', () => {
+        extension_settings.wsll.visit_blacklist = String($('#wsll_visit_blacklist').val()).split('\n').map(x => x.trim()).filter(x => x.length > 0);
         saveSettingsDebounced();
     });
-    $('#websearch_file_header').val(extension_settings.websearch.visit_file_header);
-    $('#websearch_file_header').on('input', () => {
-        extension_settings.websearch.visit_file_header = String($('#websearch_file_header').val());
+    $('#wsll_file_header').val(extension_settings.wsll.visit_file_header);
+    $('#wsll_file_header').on('input', () => {
+        extension_settings.wsll.visit_file_header = String($('#wsll_file_header').val());
         saveSettingsDebounced();
     });
-    $('#websearch_block_header').val(extension_settings.websearch.visit_block_header);
-    $('#websearch_block_header').on('input', () => {
-        extension_settings.websearch.visit_block_header = String($('#websearch_block_header').val());
+    $('#wsll_block_header').val(extension_settings.wsll.visit_block_header);
+    $('#wsll_block_header').on('input', () => {
+        extension_settings.wsll.visit_block_header = String($('#wsll_block_header').val());
         saveSettingsDebounced();
     });
-    $('#websearch_use_backticks').prop('checked', extension_settings.websearch.use_backticks);
-    $('#websearch_use_backticks').on('change', () => {
-        extension_settings.websearch.use_backticks = !!$('#websearch_use_backticks').prop('checked');
+    $('#wsll_use_backticks').prop('checked', extension_settings.wsll.use_backticks);
+    $('#wsll_use_backticks').on('change', () => {
+        extension_settings.wsll.use_backticks = !!$('#wsll_use_backticks').prop('checked');
         saveSettingsDebounced();
     });
-    $('#websearch_use_trigger_phrases').prop('checked', extension_settings.websearch.use_trigger_phrases);
-    $('#websearch_use_trigger_phrases').on('change', () => {
-        extension_settings.websearch.use_trigger_phrases = !!$('#websearch_use_trigger_phrases').prop('checked');
+    $('#wsll_use_trigger_phrases').prop('checked', extension_settings.wsll.use_trigger_phrases);
+    $('#wsll_use_trigger_phrases').on('change', () => {
+        extension_settings.wsll.use_trigger_phrases = !!$('#wsll_use_trigger_phrases').prop('checked');
         saveSettingsDebounced();
     });
-    $('#websearch_use_regex').prop('checked', extension_settings.websearch.use_regex);
-    $('#websearch_use_regex').on('change', () => {
-        extension_settings.websearch.use_regex = !!$('#websearch_use_regex').prop('checked');
-        saveSettingsDebounced();
-    });
-
-    $('#websearch_regex_add').on('click', createRegexRule);
-    $('#websearch_searxng_url').val(extension_settings.websearch.searxng_url);
-    $('#websearch_searxng_url').on('input', () => {
-        extension_settings.websearch.searxng_url = String($('#websearch_searxng_url').val());
+    $('#wsll_use_regex').prop('checked', extension_settings.wsll.use_regex);
+    $('#wsll_use_regex').on('change', () => {
+        extension_settings.wsll.use_regex = !!$('#wsll_use_regex').prop('checked');
         saveSettingsDebounced();
     });
 
-    $('#websearch_searxng_preferences').val(extension_settings.websearch.searxng_preferences);
-    $('#websearch_searxng_preferences').on('input', () => {
-        extension_settings.websearch.searxng_preferences = String($('#websearch_searxng_preferences').val());
+    $('#wsll_regex_add').on('click', createRegexRule);
+    $('#wsll_searxng_url').val(extension_settings.wsll.searxng_url);
+    $('#wsll_searxng_url').on('input', () => {
+        extension_settings.wsll.searxng_url = String($('#wsll_searxng_url').val());
         saveSettingsDebounced();
     });
 
-    $('#websearch_use_function_tool').prop('checked', extension_settings.websearch.use_function_tool);
-    $('#websearch_use_function_tool').on('change', () => {
-        extension_settings.websearch.use_function_tool = !!$('#websearch_use_function_tool').prop('checked');
+    $('#wsll_searxng_preferences').val(extension_settings.wsll.searxng_preferences);
+    $('#wsll_searxng_preferences').on('input', () => {
+        extension_settings.wsll.searxng_preferences = String($('#wsll_searxng_preferences').val());
+        saveSettingsDebounced();
+    });
+
+    $('#wsll_use_function_tool').prop('checked', extension_settings.wsll.use_function_tool);
+    $('#wsll_use_function_tool').on('change', () => {
+        extension_settings.wsll.use_function_tool = !!$('#wsll_use_function_tool').prop('checked');
         registerFunctionTools();
         saveSettingsDebounced();
     });
 
-    $('#websearch_link_limit').val(extension_settings.websearch.link_limit);
-    $('#websearch_link_limit').on('input', () => {
-        extension_settings.websearch.link_limit = Math.max(0, Math.floor(Number($('#websearch_link_limit').val()) || 0));
+    $('#wsll_link_limit').val(extension_settings.wsll.link_limit);
+    $('#wsll_link_limit').on('input', () => {
+        extension_settings.wsll.link_limit = Math.max(0, Math.floor(Number($('#wsll_link_limit').val()) || 0));
         saveSettingsDebounced();
     });
 
-    $('#websearch_include_images').prop('checked', extension_settings.websearch.include_images);
-    $('#websearch_include_images').on('change', () => {
-        extension_settings.websearch.include_images = !!$('#websearch_include_images').prop('checked');
+    $('#wsll_include_images').prop('checked', extension_settings.wsll.include_images);
+    $('#wsll_include_images').on('change', () => {
+        extension_settings.wsll.include_images = !!$('#wsll_include_images').prop('checked');
         saveSettingsDebounced();
     });
 
@@ -1819,13 +1819,13 @@ jQuery(async () => {
     registerFunctionTools();
     await renderRegexRules();
 
-    registerDebugFunction('clearWebSearchCache', 'Clear the WebSearch cache', 'Removes all search results stored in the local cache.', async () => {
+    registerDebugFunction('clearWebSearchLLCache', 'Clear the WebSearch cache', 'Removes all search results stored in the local cache.', async () => {
         await storage.clear();
         console.log('WebSearch: cache cleared');
         toastr.success('WebSearch: cache cleared');
     });
 
-    registerDebugFunction('testWebSearch', 'Test the WebSearch extension', 'Performs a test search using the current settings.', async () => {
+    registerDebugFunction('testWebSearchLL', 'Test the WebSearch extension', 'Performs a test search using the current settings.', async () => {
         try {
             const text = prompt('Enter a test message', 'How to make a sandwich');
 
@@ -1842,7 +1842,7 @@ jQuery(async () => {
     });
 
     SlashCommandParser.addCommandObject(SlashCommand.fromProps({
-        name: 'websearch',
+        name: 'websearchll',
         helpString: 'Performs a web search query. Use named arguments to specify what to return - page snippets, full parsed pages, or both.',
         unnamedArgumentList: [
             SlashCommandArgument.fromProps({
@@ -1903,6 +1903,6 @@ jQuery(async () => {
 
     const context = getContext();
     if (typeof context.registerDataBankScraper === 'function') {
-        context.registerDataBankScraper(new WebSearchScraper());
+        context.registerDataBankScraper(new WebSearchLLScraper());
     }
 });

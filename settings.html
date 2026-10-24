@@ -1,4 +1,4 @@
-<div class="websearch_settings">
+<div class="wsll_settings">
     <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
             <b>Web Search</b>
@@ -6,12 +6,12 @@
         </div>
         <div class="inline-drawer-content">
             <div class="flex-container flexFlowColumn">
-                <label class="checkbox_label" for="websearch_enabled">
-                    <input type="checkbox" id="websearch_enabled" />
+                <label class="checkbox_label" for="wsll_enabled">
+                    <input type="checkbox" id="wsll_enabled" />
                     <span>Enabled</span>
                 </label>
                 <h4>Source</h4>
-                <select id="websearch_source">
+                <select id="wsll_source">
                     <option value="extras">Extras API (deprecated)</option>
                     <option value="koboldcpp">KoboldCpp</option>
                     <option value="searxng">SearXNG</option>
@@ -21,18 +21,18 @@
                     <option value="tavily">Tavily</option>
                     <option value="zai">Z.AI</option>
                 </select>
-                <div id="serpapi_settings">
+                <div id="wsll_serpapi_settings">
                     <div class="flex-container alignItemsBaseline">
-                        <h4 for="serpapi_key" class="flex1 margin0">
+                        <h4 for="wsll_serpapi_key" class="flex1 margin0">
                             <a href="https://serpapi.com/" target="_blank" rel="noopener noreferrer">SerpApi Key</a>
                         </h4>
-                        <div id="serpapi_key" class="menu_button menu_button_icon">
+                        <div id="wsll_serpapi_key" class="menu_button menu_button_icon">
                             <i class="fa-solid fa-key"></i>
                             <span>Click to set</span>
                         </div>
                     </div>
                 </div>
-                <div id="websearch_searxng_settings">
+                <div id="wsll_searxng_settings">
                     <div>
                         <strong>
                             <a href="https://github.com/searxng/searxng" target="_blank" rel="noopener noreferrer">
@@ -40,41 +40,41 @@
                             </a>
                         </strong>
                     </div>
-                    <label for="websearch_searxng_url">Base URL</label>
-                    <input type="text" class="text_pole" id="websearch_searxng_url" value="">
-                    <label for="websearch_searxng_preferences">SearXNG preferences string</label>
-                    <input type="text" class="text_pole" id="websearch_searxng_preferences" value="">
+                    <label for="wsll_searxng_url">Base URL</label>
+                    <input type="text" class="text_pole" id="wsll_searxng_url" value="">
+                    <label for="wsll_searxng_preferences">SearXNG preferences string</label>
+                    <input type="text" class="text_pole" id="wsll_searxng_preferences" value="">
                 </div>
-                <div id="websearch_extras_settings">
-                    <label for="websearch_extras_engine">Engine</label>
-                    <select id="websearch_extras_engine">
+                <div id="wsll_extras_settings">
+                    <label for="wsll_extras_engine">Engine</label>
+                    <select id="wsll_extras_engine">
                         <option value="google">Google</option>
                         <option value="duckduckgo">DuckDuckGo</option>
                     </select>
                 </div>
-                <div id="websearch_tavily_settings">
+                <div id="wsll_tavily_settings">
                     <div class="flex-container alignItemsBaseline">
-                        <h4 for="tavily_key" class="flex1 margin0">
+                        <h4 for="wsll_tavily_key" class="flex1 margin0">
                             <a href="https://app.tavily.com/" target="_blank" rel="noopener noreferrer">Tavily AI Key</a>
                         </h4>
-                        <div id="tavily_key" class="menu_button menu_button_icon">
+                        <div id="wsll_tavily_key" class="menu_button menu_button_icon">
                             <i class="fa-solid fa-key"></i>
                             <span>Click to set</span>
                         </div>
                     </div>
                 </div>
-                <div id="websearch_serper_settings">
+                <div id="wsll_serper_settings">
                     <div class="flex-container alignItemsBaseline">
-                        <h4 for="serper_key" class="flex1 margin0">
+                        <h4 for="wsll_serper_key" class="flex1 margin0">
                             <a href="https://serper.dev/" target="_blank" rel="noopener noreferrer">Serper Key</a>
                         </h4>
-                        <div id="serper_key" class="menu_button menu_button_icon">
+                        <div id="wsll_serper_key" class="menu_button menu_button_icon">
                             <i class="fa-solid fa-key"></i>
                             <span>Click to set</span>
                         </div>
                     </div>
                 </div>
-                <div id="websearch_koboldcpp_settings">
+                <div id="wsll_koboldcpp_settings">
                     <b>Hint:</b>
                     <span>
                         Set the KoboldCpp URL in the Text Completion API connection settings.
@@ -83,112 +83,112 @@
                         Must use version 1.18.1 or higher and have WebSearch option enabled.
                     </span>
                 </div>
-                <div id="websearch_zai_settings">
+                <div id="wsll_zai_settings">
                     <b>Hint:</b>
                     <span>
                         Set the API Key in the Chat Completion API connection settings.
                     </span>
                     <b>Will use Common API. Coding API is not supported!</b>
                 </div>
-                <label for="websearch_cache_lifetime">Cache Lifetime <small>(seconds)</small></label>
-                <input type="number" class="text_pole" id="websearch_cache_lifetime" value="">
+                <label for="wsll_cache_lifetime">Cache Lifetime <small>(seconds)</small></label>
+                <input type="number" class="text_pole" id="wsll_cache_lifetime" value="">
                 <hr>
                 <h4>Prompt Settings</h4>
-                <label for="websearch_budget">Prompt Budget <small>(text characters)</small></label>
-                <input type="number" class="text_pole" id="websearch_budget" value="">
-                <label for="websearch_template">Injection Template</label>
-                <textarea id="websearch_template" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use {{query}} and {{text}} macro."></textarea>
-                <label for="websearch_position">Injection Position</label>
+                <label for="wsll_budget">Prompt Budget <small>(text characters)</small></label>
+                <input type="number" class="text_pole" id="wsll_budget" value="">
+                <label for="wsll_template">Injection Template</label>
+                <textarea id="wsll_template" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use {{query}} and {{text}} macro."></textarea>
+                <label for="wsll_position">Injection Position</label>
                 <div class="radio_group">
                     <label>
-                        <input type="radio" name="websearch_position" value="-1" />
+                        <input type="radio" name="wsll_position" value="-1" />
                         None (do not inject)
                     </label>
                     <label>
-                        <input type="radio" name="websearch_position" value="2" />
+                        <input type="radio" name="wsll_position" value="2" />
                         Before Main Prompt / Story String
                     </label>
                     <!--Keep these as 0 and 1 to interface with the setExtensionPrompt function-->
                     <label>
-                        <input type="radio" name="websearch_position" value="0" />
+                        <input type="radio" name="wsll_position" value="0" />
                         After Main Prompt / Story String
                     </label>
                     <label>
-                        <input type="radio" name="websearch_position" value="1" />
-                        In-chat @ Depth <input id="websearch_depth" class="text_pole widthUnset" type="number" min="0" max="999" />
+                        <input type="radio" name="wsll_position" value="1" />
+                        In-chat @ Depth <input id="wsll_depth" class="text_pole widthUnset" type="number" min="0" max="999" />
                     </label>
                 </div>
                 <hr>
                 <h4>Search Activation</h4>
-                <label class="checkbox_label" for="websearch_use_function_tool">
-                    <input type="checkbox" id="websearch_use_function_tool" />
+                <label class="checkbox_label" for="wsll_use_function_tool">
+                    <input type="checkbox" id="wsll_use_function_tool" />
                     <span>Use function tool</span>
                 </label>
-                <label class="checkbox_label" for="websearch_use_backticks">
-                    <input type="checkbox" id="websearch_use_backticks" />
+                <label class="checkbox_label" for="wsll_use_backticks">
+                    <input type="checkbox" id="wsll_use_backticks" />
                     <span>Use `Backticks`</span>
                 </label>
-                <label class="checkbox_label" for="websearch_use_regex">
-                    <input type="checkbox" id="websearch_use_regex" />
+                <label class="checkbox_label" for="wsll_use_regex">
+                    <input type="checkbox" id="wsll_use_regex" />
                     <span>Use Regex</span>
                 </label>
-                <div id="websearch_regex_block" class="flex flexFlowColumn">
+                <div id="wsll_regex_block" class="flex flexFlowColumn">
                     <label>Regex Rules</label>
-                    <div class="menu_button menu_button_icon" id="websearch_regex_add" title="Create a new regex rule">
+                    <div class="menu_button menu_button_icon" id="wsll_regex_add" title="Create a new regex rule">
                         <i class="fa-solid fa-plus"></i>
                         <span>Add Regex</span>
                     </div>
-                    <div id="websearch_regex_list" class="wide100p flex-container flexFlowColumn"></div>
+                    <div id="wsll_regex_list" class="wide100p flex-container flexFlowColumn"></div>
                 </div>
-                <label class="checkbox_label" for="websearch_use_trigger_phrases">
-                    <input type="checkbox" id="websearch_use_trigger_phrases" />
+                <label class="checkbox_label" for="wsll_use_trigger_phrases">
+                    <input type="checkbox" id="wsll_use_trigger_phrases" />
                     <span>Use Trigger Phrases</span>
                 </label>
-                <div id="websearch_trigger_phrases_block" class="flex-container flexFlowColumn">
-                    <label for="websearch_trigger_phrases">Trigger Phrases <small>(one per line)</small></label>
+                <div id="wsll_trigger_phrases_block" class="flex-container flexFlowColumn">
+                    <label for="wsll_trigger_phrases">Trigger Phrases <small>(one per line)</small></label>
                     <small>If a message starts with a period, it will be ignored.</small>
-                    <textarea id="websearch_trigger_phrases" class="text_pole textarea_compact" rows="4"></textarea>
-                    <label for="websearch_max_words">Max Words <small>(per query)</small></label>
-                    <input type="number" class="text_pole" id="websearch_max_words" value="" min="1" max="32" step="1">
+                    <textarea id="wsll_trigger_phrases" class="text_pole textarea_compact" rows="4"></textarea>
+                    <label for="wsll_max_words">Max Words <small>(per query)</small></label>
+                    <input type="number" class="text_pole" id="wsll_max_words" value="" min="1" max="32" step="1">
                 </div>
                 <hr>
                 <h4>Page Scraping</h4>
-                <label class="checkbox_label" for="websearch_visit_enabled">
-                    <input type="checkbox" id="websearch_visit_enabled" />
+                <label class="checkbox_label" for="wsll_visit_enabled">
+                    <input type="checkbox" id="wsll_visit_enabled" />
                     <span>Visit Links</span>
                 </label>
-                <label class="checkbox_label" for="websearch_include_images">
-                    <input type="checkbox" id="websearch_include_images" />
+                <label class="checkbox_label" for="wsll_include_images">
+                    <input type="checkbox" id="wsll_include_images" />
                     <span>Include Images</span>
                     <small>(not all sources supported)</small>
                 </label>
                 <div class="marginTopBot5">
                     Text will be extracted from the visited search result pages and saved to:
                 </div>
-                <label for="websearch_visit_target_none" class="checkbox_label">
-                    <input id="websearch_visit_target_none" type="radio" name="websearch_visit_target" value="2" />
+                <label for="wsll_visit_target_none" class="checkbox_label">
+                    <input id="wsll_visit_target_none" type="radio" name="wsll_visit_target" value="2" />
                     <span>None (just images)</span>
                 </label>
-                <label for="websearch_visit_target_message" class="checkbox_label">
-                    <input id="websearch_visit_target_message" type="radio" name="websearch_visit_target" value="0" />
+                <label for="wsll_visit_target_message" class="checkbox_label">
+                    <input id="wsll_visit_target_message" type="radio" name="wsll_visit_target" value="0" />
                     <span>Message attachment</span>
                 </label>
-                <label for="websearch_visit_target_databank" class="checkbox_label">
-                    <input id="websearch_visit_target_databank" type="radio" name="websearch_visit_target" value="1" />
+                <label for="wsll_visit_target_databank" class="checkbox_label">
+                    <input id="wsll_visit_target_databank" type="radio" name="wsll_visit_target" value="1" />
                     <span>Data Bank (chat)</span>
                 </label>
-                <label for="websearch_visit_count">Visit Count <small>(max per query)</small></label>
-                <input type="number" class="text_pole" id="websearch_visit_count" value="" min="0" max="10" step="1">
-                <label for="websearch_visit_blacklist">Visit Domain Blacklist <small>(one per line)</small></label>
-                <textarea id="websearch_visit_blacklist" class="text_pole textarea_compact" rows="4"></textarea>
-                <label for="websearch_file_header">File Header</label>
-                <textarea id="websearch_file_header" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use &lcub;&lcub;query&rcub;&rcub; macro."></textarea>
-                <label for="websearch_block_header">Block Header</label>
-                <textarea id="websearch_block_header" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use &lcub;&lcub;link&rcub;&rcub; and &lcub;&lcub;text&rcub;&rcub; macros."></textarea>
+                <label for="wsll_visit_count">Visit Count <small>(max per query)</small></label>
+                <input type="number" class="text_pole" id="wsll_visit_count" value="" min="0" max="10" step="1">
+                <label for="wsll_visit_blacklist">Visit Domain Blacklist <small>(one per line)</small></label>
+                <textarea id="wsll_visit_blacklist" class="text_pole textarea_compact" rows="4"></textarea>
+                <label for="wsll_file_header">File Header</label>
+                <textarea id="wsll_file_header" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use &lcub;&lcub;query&rcub;&rcub; macro."></textarea>
+                <label for="wsll_block_header">Block Header</label>
+                <textarea id="wsll_block_header" class="text_pole textarea_compact autoSetHeight" rows="2" placeholder="Use &lcub;&lcub;link&rcub;&rcub; and &lcub;&lcub;text&rcub;&rcub; macros."></textarea>
                 <hr>
                 <h4>Link Limiter</h4>
-                <label for="websearch_link_limit">Max Links <small>(sent to the model per tool call, 0 = no limit)</small></label>
-                <input type="number" class="text_pole" id="websearch_link_limit" value="" min="0" step="1">
+                <label for="wsll_link_limit">Max Links <small>(sent to the model per tool call, 0 = no limit)</small></label>
+                <input type="number" class="text_pole" id="wsll_link_limit" value="" min="0" step="1">
                 <small>Caps the links and image URLs returned by the WebSearch tool, and the links the model can visit with the VisitLinks tool.</small>
             </div>
         </div>
