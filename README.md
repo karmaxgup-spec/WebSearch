@@ -102,7 +102,7 @@ Docs: <https://docs.z.ai/api-reference/tools/web-search>
 
 ### Link Limiter
 
-1. Max Links - how many links are passed to the model per tool call (0 = no limit, default). Applies to the links returned by the WebSearch function tool and to the links the model passes to the VisitLinks function tool.
+1. Max Links - how many links are passed to the model per tool call (0 = no limit, default). Applies to the links and image URLs returned by the WebSearch function tool (each list is capped separately) and to the links the model passes to the VisitLinks function tool.
 
 ## More info
 

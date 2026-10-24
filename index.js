@@ -1579,7 +1579,7 @@ function registerFunctionTools() {
                 if (!args.query) throw new Error('No query provided');
                 if (!(await isSearchAvailable())) throw new Error('Search is not available');
                 const search = await performSearchRequest(args.query, { useCache: true });
-                return { ...search, links: applyLinkLimit(search.links) };
+                return { ...search, links: applyLinkLimit(search.links), images: applyLinkLimit(search.images) };
             },
         });
 
