@@ -1148,16 +1148,22 @@ async function runTextToolCalls(message) {
 
     const key = getStringHash(message.mes);
     if (handledToolCallKeys.has(key)) {
+        console.debug('WebSearch: tool call already handled');
         return;
     }
-    handledToolCallKeys.add(key);
+    console.log('WebSearch: text tool call found', calls);
 
     const parts = [];
     const queries = [];
 
     for (const { name, args } of calls) {
         if (name === 'WebSearchLL') {
-            if (!args.query || !(await isSearchAvailable())) {
+            if (!args.query) {
+                console.warn('WebSearch: WebSearchLL call has no query');
+                continue;
+            }
+            if (!(await isSearchAvailable())) {
+                console.warn('WebSearch: search is not available (check the SearXNG URL)');
                 continue;
             }
 
@@ -1183,8 +1189,11 @@ async function runTextToolCalls(message) {
     }
 
     if (parts.length === 0) {
+        console.warn('WebSearch: tool call produced no results');
         return;
     }
+
+    handledToolCallKeys.add(key);
 
     let template = extension_settings.wsll.insertionTemplate || defaultSettings.insertionTemplate;
     if (!(/{{text}}/i.test(template))) {
