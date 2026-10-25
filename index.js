@@ -135,7 +135,7 @@ function createRegexRule() {
 async function renderRegexRules() {
     $('#wsll_regex_list').empty();
     for (const rule of extension_settings.wsll.regex) {
-        const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'regex'));
+        const template = $(await renderExtensionTemplateAsync('third-party/WebSearch', 'regex'));
         template.find('.wsll_regex_pattern').val(rule.pattern).on('input', function () {
             rule.pattern = String($(this).val());
             saveSettingsDebounced();
@@ -960,7 +960,7 @@ class WebSearchLLScraper {
      */
     async scrape() {
         try {
-            const template = $(await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'search-scrape', {}));
+            const template = $(await renderExtensionTemplateAsync('third-party/WebSearch', 'search-scrape', {}));
             let query = '';
             let maxResults = extension_settings.wsll.visit_count;
             let output = 'multiple';
@@ -1179,7 +1179,7 @@ jQuery(async () => {
         }
     }
 
-    const html = await renderExtensionTemplateAsync('third-party/Extension-WebSearch-LinkLimit', 'settings');
+    const html = await renderExtensionTemplateAsync('third-party/WebSearch', 'settings');
 
     const getContainer = () => $(document.getElementById('wsll_container') ?? document.getElementById('extensions_settings2'));
     getContainer().append(html);
