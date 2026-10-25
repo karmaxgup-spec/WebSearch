@@ -16,6 +16,7 @@ const supportsMediaArrays = typeof ensureMessageMediaIsArray === 'function';
 const storage = localforage.createInstance({ name: 'SillyTavern_WebSearchLL' });
 const extensionPromptMarker = '___WebSearchLL___';
 let pendingToolPrompt = null;
+let autoContinuedThisTurn = false;
 const handledToolCallKeys = new Set();
 
 const WEBSEARCH_SOURCES = {
@@ -100,6 +101,8 @@ const defaultSettings = {
     visit_target: VISIT_TARGETS.MESSAGE,
     visit_count: 3,
     link_limit: 0,
+    auto_continue: true,
+    page_images: true,
     visit_file_header: 'Web search results for "{{query}}"\n\n',
     visit_block_header: '---\nInformation from {{link}}\n\n{{text}}\n\n',
     visit_blacklist: [
@@ -1084,32 +1087,82 @@ function applyLinkLimit(links) {
 
 const IMAGE_URL_REGEX = /https?:\/\/[^\s"'<>()[\]]+?\.(?:jpe?g|png|gif|webp)(?:\?[^\s"'<>()[\],;]*)?/gi;
 
+const pageImageCache = new Map();
+
 /**
- * Shows image links written in a chat message as images, instead of plain text.
+ * Finds the main image of a web page, using its og:image tag or the Amazon product image.
+ * @param {string} pageUrl Page address
+ * @returns {Promise<string|null>} Absolute image address, or null
+ */
+async function fetchPageImage(pageUrl) {
+    if (pageImageCache.has(pageUrl)) {
+        return pageImageCache.get(pageUrl);
+    }
+
+    let imageUrl = null;
+    try {
+        const result = await fetch('/api/search/visit', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ url: pageUrl, html: true }),
+        });
+
+        if (result.ok) {
+            const html = await result.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const candidate = doc.querySelector('meta[property="og:image"], meta[name="og:image"], meta[property="og:image:secure_url"], meta[name="twitter:image"]')?.getAttribute('content')
+                ?? doc.querySelector('#landingImage, #imgBlkFront')?.getAttribute('src');
+            if (candidate) {
+                imageUrl = new URL(candidate, pageUrl).href;
+            }
+        }
+    } catch (error) {
+        console.debug('WebSearch: page image lookup failed', pageUrl, error);
+    }
+
+    pageImageCache.set(pageUrl, imageUrl);
+    return imageUrl;
+}
+
+/**
+ * Shows image links, and images of linked pages, inside a chat message.
  * The images are attached to the message as media, so they stay after a reload.
  * @param {number} messageId Chat index of the message
+ * @param {{fetchPages?: boolean}} options Whether to look up images of linked web pages
  */
-function attachImageLinksToMessage(messageId) {
+async function attachImageLinksToMessage(messageId, { fetchPages = false } = {}) {
     const context = SillyTavern.getContext();
     const message = context.chat[messageId];
     if (!message || message.is_user || message.is_system) {
         return;
     }
 
-    const urls = [...new Set((message.mes ?? '').match(IMAGE_URL_REGEX) ?? [])];
-    if (urls.length === 0) {
-        return;
+    const text = message.mes ?? '';
+    const imageLinks = [...new Set(text.match(IMAGE_URL_REGEX) ?? [])];
+    const added = imageLinks.map(url => ({ url, type: 'image', title: 'Image link' }));
+
+    if (fetchPages && extension_settings.wsll.page_images !== false) {
+        const pageLinks = [...new Set((text.match(/https?:\/\/[^\s"'<>()[\]]+/g) ?? []).map(url => url.replace(/[.,;:!?]+$/, '')))]
+            .filter(url => !/\.(?:jpe?g|png|gif|webp)(?:[?#]|$)/i.test(url))
+            .slice(0, 3);
+
+        for (const pageUrl of pageLinks) {
+            const imageUrl = await fetchPageImage(pageUrl);
+            if (imageUrl) {
+                added.push({ url: imageUrl, type: 'image', title: 'Image from ' + new URL(pageUrl).hostname });
+            }
+        }
     }
 
     message.extra ??= {};
     const media = Array.isArray(message.extra.media) ? message.extra.media : [];
     const existing = new Set(media.map(item => item.url));
-    const added = urls.filter(url => !existing.has(url)).map(url => ({ url, type: 'image', title: 'Image link' }));
-    if (added.length === 0) {
+    const newItems = added.filter(item => !existing.has(item.url));
+    if (newItems.length === 0) {
         return;
     }
 
-    message.extra.media = [...media, ...added];
+    message.extra.media = [...media, ...newItems];
     const messageElement = $(`#chat .mes[mesid="${messageId}"]`);
     if (messageElement.length > 0) {
         appendMediaToMessage(message, messageElement);
@@ -1269,6 +1322,13 @@ async function runTextToolCalls(message) {
 
     pendingToolPrompt = substituteParamsExtended(template, { text: parts.join('\n'), query: queries.join(', ') });
     console.log('WebSearch: text tool call handled, result queued for next generation');
+
+    // Behave like a real tool call: let the model answer with the results right away.
+    // Only once per user message, so a model that keeps calling tools cannot loop.
+    if (extension_settings.wsll.auto_continue && !autoContinuedThisTurn) {
+        autoContinuedThisTurn = true;
+        setTimeout(() => SillyTavern.getContext().generate('normal'), 300);
+    }
 }
 
 function registerFunctionTools() {
@@ -1481,6 +1541,18 @@ jQuery(async () => {
         saveSettingsDebounced();
     });
 
+    $('#wsll_page_images').prop('checked', extension_settings.wsll.page_images);
+    $('#wsll_page_images').on('change', () => {
+        extension_settings.wsll.page_images = !!$('#wsll_page_images').prop('checked');
+        saveSettingsDebounced();
+    });
+
+    $('#wsll_auto_continue').prop('checked', extension_settings.wsll.auto_continue);
+    $('#wsll_auto_continue').on('change', () => {
+        extension_settings.wsll.auto_continue = !!$('#wsll_auto_continue').prop('checked');
+        saveSettingsDebounced();
+    });
+
     $('#wsll_use_function_tool').prop('checked', extension_settings.wsll.use_function_tool);
     $('#wsll_use_function_tool').on('change', () => {
         extension_settings.wsll.use_function_tool = !!$('#wsll_use_function_tool').prop('checked');
@@ -1505,13 +1577,16 @@ jQuery(async () => {
 
     const stContext = SillyTavern.getContext();
     stContext.eventSource.on(stContext.eventTypes.CHARACTER_MESSAGE_RENDERED, (messageId) => {
-        attachImageLinksToMessage(Number(messageId));
+        attachImageLinksToMessage(Number(messageId), { fetchPages: true });
     });
     stContext.eventSource.on(stContext.eventTypes.CHAT_CHANGED, () => {
         setTimeout(() => {
             const chat = SillyTavern.getContext().chat;
             chat.forEach((_, index) => attachImageLinksToMessage(index));
         }, 500);
+    });
+    stContext.eventSource.on(stContext.eventTypes.MESSAGE_SENT, () => {
+        autoContinuedThisTurn = false;
     });
     stContext.eventSource.on(stContext.eventTypes.MESSAGE_RECEIVED, async (messageId) => {
         if (!extension_settings.wsll.enabled) {
