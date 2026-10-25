@@ -1,4 +1,4 @@
-import { appendMediaToMessage, extension_prompt_types, getRequestHeaders, saveSettingsDebounced, setExtensionPrompt, substituteParamsExtended, name2 } from '../../../../script.js';
+import { appendMediaToMessage, extension_prompt_types, getRequestHeaders, saveChatDebounced, saveSettingsDebounced, setExtensionPrompt, substituteParamsExtended, name2 } from '../../../../script.js';
 import { appendFileContent, uploadFileAttachment } from '../../../chats.js';
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { registerDebugFunction } from '../../../power-user.js';
@@ -1082,6 +1082,41 @@ function applyLinkLimit(links) {
     return links.slice(0, limit);
 }
 
+const IMAGE_URL_REGEX = /https?:\/\/[^\s"'<>()[\]]+?\.(?:jpe?g|png|gif|webp)(?:\?[^\s"'<>()[\],;]*)?/gi;
+
+/**
+ * Shows image links written in a chat message as images, instead of plain text.
+ * The images are attached to the message as media, so they stay after a reload.
+ * @param {number} messageId Chat index of the message
+ */
+function attachImageLinksToMessage(messageId) {
+    const context = SillyTavern.getContext();
+    const message = context.chat[messageId];
+    if (!message || message.is_user || message.is_system) {
+        return;
+    }
+
+    const urls = [...new Set((message.mes ?? '').match(IMAGE_URL_REGEX) ?? [])];
+    if (urls.length === 0) {
+        return;
+    }
+
+    message.extra ??= {};
+    const media = Array.isArray(message.extra.media) ? message.extra.media : [];
+    const existing = new Set(media.map(item => item.url));
+    const added = urls.filter(url => !existing.has(url)).map(url => ({ url, type: 'image', title: 'Image link' }));
+    if (added.length === 0) {
+        return;
+    }
+
+    message.extra.media = [...media, ...added];
+    const messageElement = $(`#chat .mes[mesid="${messageId}"]`);
+    if (messageElement.length > 0) {
+        appendMediaToMessage(message, messageElement);
+    }
+    saveChatDebounced();
+}
+
 /**
  * Recovers tool calls from text that is not valid JSON, by reading the tool name and
  * its query or links directly from the text.
@@ -1469,6 +1504,15 @@ jQuery(async () => {
     await renderRegexRules();
 
     const stContext = SillyTavern.getContext();
+    stContext.eventSource.on(stContext.eventTypes.CHARACTER_MESSAGE_RENDERED, (messageId) => {
+        attachImageLinksToMessage(Number(messageId));
+    });
+    stContext.eventSource.on(stContext.eventTypes.CHAT_CHANGED, () => {
+        setTimeout(() => {
+            const chat = SillyTavern.getContext().chat;
+            chat.forEach((_, index) => attachImageLinksToMessage(index));
+        }, 500);
+    });
     stContext.eventSource.on(stContext.eventTypes.MESSAGE_RECEIVED, async (messageId) => {
         if (!extension_settings.wsll.enabled) {
             return;
