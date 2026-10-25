@@ -1083,6 +1083,38 @@ function applyLinkLimit(links) {
 }
 
 /**
+ * Recovers tool calls from text that is not valid JSON, by reading the tool name and
+ * its query or links directly from the text.
+ * @param {string} text Message text
+ * @returns {{name: string, args: object}[]} Recovered calls
+ */
+function extractLenientToolCalls(text) {
+    const norm = (text ?? '').replace(/\\"/g, '"');
+    const hits = [...norm.matchAll(/["']?name["']?\s*[:=]\s*["'](WebSearchLL|VisitLinksLL)["']/g)]
+        .map(m => ({ name: m[1], index: m.index, end: m.index + m[0].length }));
+    const calls = [];
+
+    hits.forEach((hit, i) => {
+        const end = Math.min(hits[i + 1]?.index ?? norm.length, hit.end + 800);
+        const windowText = norm.slice(hit.end, end);
+
+        if (hit.name === 'WebSearchLL') {
+            const match = windowText.match(/["']?query["']?\s*[:=]\s*["']([^"']+)["']/) ?? windowText.match(/["']?query["']?\s*[:=]\s*([^\n,}"']+)/);
+            if (match && match[1].trim()) {
+                calls.push({ name: hit.name, args: { query: match[1].trim() } });
+            }
+        } else {
+            const links = [...windowText.matchAll(/https?:\/\/[^\s"'<>\\,\]}]+/g)].map(m => m[0]);
+            if (links.length > 0) {
+                calls.push({ name: hit.name, args: { links } });
+            }
+        }
+    });
+
+    return calls;
+}
+
+/**
  * Finds tool calls that the model printed as plain text instead of calling the tool.
  * Accepts a single call object or a {"tool_calls": [...]} list, optionally in a code block.
  * @param {string} text Message text
@@ -1133,7 +1165,7 @@ function extractTextToolCalls(text) {
         }
     }
 
-    return [];
+    return extractLenientToolCalls(text);
 }
 
 /**
