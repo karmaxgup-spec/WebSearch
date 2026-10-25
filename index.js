@@ -15,6 +15,8 @@ const supportsMediaArrays = typeof ensureMessageMediaIsArray === 'function';
 
 const storage = localforage.createInstance({ name: 'SillyTavern_WebSearchLL' });
 const extensionPromptMarker = '___WebSearchLL___';
+let pendingToolPrompt = null;
+const handledToolCallKeys = new Set();
 
 const WEBSEARCH_SOURCES = {
     SEARXNG: 'searxng',
@@ -189,6 +191,12 @@ async function onWebSearchPrompt(chat, _maxContext, _abort, type) {
 
     if (!extension_settings.wsll.enabled) {
         console.debug('WebSearch: extension is disabled');
+        return;
+    }
+
+    if (pendingToolPrompt) {
+        setExtensionPrompt(extensionPromptMarker, pendingToolPrompt, extension_settings.wsll.position, extension_settings.wsll.depth);
+        pendingToolPrompt = null;
         return;
     }
 
@@ -1074,6 +1082,119 @@ function applyLinkLimit(links) {
     return links.slice(0, limit);
 }
 
+/**
+ * Finds tool calls that the model printed as plain text instead of calling the tool.
+ * Accepts a single call object or a {"tool_calls": [...]} list, optionally in a code block.
+ * @param {string} text Message text
+ * @returns {{name: string, args: object}[]} Calls to WebSearchLL / VisitLinksLL
+ */
+function extractTextToolCalls(text) {
+    const toolNames = ['WebSearchLL', 'VisitLinksLL'];
+    const candidates = [...(text ?? '').matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(m => m[1]);
+    candidates.push(text ?? '');
+
+    for (const candidate of candidates) {
+        const start = candidate.indexOf('{');
+        const end = candidate.lastIndexOf('}');
+        if (start === -1 || end <= start) {
+            continue;
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(candidate.slice(start, end + 1));
+        } catch {
+            continue;
+        }
+
+        const items = Array.isArray(parsed?.tool_calls) ? parsed.tool_calls : [parsed];
+        const calls = [];
+
+        for (const item of items) {
+            const fn = item?.function ?? item;
+            if (!toolNames.includes(fn?.name)) {
+                continue;
+            }
+
+            let args = fn.arguments ?? {};
+            if (typeof args === 'string') {
+                try {
+                    args = JSON.parse(args);
+                } catch {
+                    continue;
+                }
+            }
+
+            calls.push({ name: fn.name, args });
+        }
+
+        if (calls.length > 0) {
+            return calls;
+        }
+    }
+
+    return [];
+}
+
+/**
+ * Runs tool calls found in a received message and stores the result for the next generation.
+ * @param {object} message Chat message
+ */
+async function runTextToolCalls(message) {
+    const calls = extractTextToolCalls(message.mes);
+    if (calls.length === 0) {
+        return;
+    }
+
+    const key = getStringHash(message.mes);
+    if (handledToolCallKeys.has(key)) {
+        return;
+    }
+    handledToolCallKeys.add(key);
+
+    const parts = [];
+    const queries = [];
+
+    for (const { name, args } of calls) {
+        if (name === 'WebSearchLL') {
+            if (!args.query || !(await isSearchAvailable())) {
+                continue;
+            }
+
+            const search = await performSearchRequest(String(args.query), { useCache: true });
+            if (!search.text) {
+                continue;
+            }
+
+            const links = applyLinkLimit(search.links);
+            queries.push(String(args.query));
+            parts.push(search.text + (links.length > 0 ? '\nLinks:\n' + links.join('\n') + '\n' : ''));
+        }
+
+        if (name === 'VisitLinksLL') {
+            const links = applyLinkLimit(Array.isArray(args.links) ? args.links : []).filter(isAllowedUrl);
+            for (const link of links) {
+                const visit = await visitLink(link);
+                if (visit?.text) {
+                    parts.push(ensureEndNewline(substituteParamsExtended(extension_settings.wsll.visit_block_header, { link: visit.link, text: visit.text })));
+                }
+            }
+        }
+    }
+
+    if (parts.length === 0) {
+        return;
+    }
+
+    let template = extension_settings.wsll.insertionTemplate || defaultSettings.insertionTemplate;
+    if (!(/{{text}}/i.test(template))) {
+        template += '\n{{text}}';
+    }
+
+    pendingToolPrompt = substituteParamsExtended(template, { text: parts.join('\n'), query: queries.join(', ') });
+    console.log('WebSearch: text tool call handled, result queued for next generation');
+}
+
 function registerFunctionTools() {
     try {
         const { registerFunctionTool, unregisterFunctionTool } = SillyTavern.getContext();
@@ -1305,6 +1426,24 @@ jQuery(async () => {
 
     registerFunctionTools();
     await renderRegexRules();
+
+    const stContext = SillyTavern.getContext();
+    stContext.eventSource.on(stContext.eventTypes.MESSAGE_RECEIVED, async (messageId) => {
+        if (!extension_settings.wsll.enabled) {
+            return;
+        }
+
+        const message = SillyTavern.getContext().chat[messageId];
+        if (!message || message.is_user || message.is_system) {
+            return;
+        }
+
+        try {
+            await runTextToolCalls(message);
+        } catch (error) {
+            console.error('WebSearch: text tool call failed', error);
+        }
+    });
 
     registerDebugFunction('clearWebSearchLLCache', 'Clear the WebSearch cache', 'Removes all search results stored in the local cache.', async () => {
         await storage.clear();
